@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Peach Preset Studio</title>
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
+    <style>
+        /* ========================================
+           Peach Sunset Design Tokens
+           ======================================== */
+        :root {
+            --ps-page: #FAF7F5; 
+            --ps-surface: #FFFFFF;
+            --ps-surface-muted: #F5EAE8;
+            --ps-text: #4A4240; 
+            --ps-text-secondary: #8A7F7C;
+            --ps-text-muted: #B8ACA9;
+            --ps-border: #E8DDDA;
+            --ps-border-strong: #DBCACB;
+            --ps-shadow-soft: 0 10px 30px rgba(181, 151, 153, 0.08);
+            --ps-primary: #EFA69D; 
+            --ps-primary-hover: #DF877C; 
+            --ps-success: #A3C9A8; 
+            --ps-danger: #E29596; 
+            
+            --ps-font-ui: "Nunito", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            --ps-font-mono: "Fira Code", ui-monospace, monospace;
+            
+            --ps-radius-sm: 10px;
+            --ps-radius-md: 18px;
+            --ps-radius-lg: 28px;
+            --ps-radius-pill: 50px;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+        body {
+            font-family: var(--ps-font-ui); background-color: var(--ps-page);
+            color: var(--ps-text); line-height: 1.5; padding-top: 60px; padding-bottom: 90px;
+        }
+
+        header {
+            position: fixed; top: 0; left: 0; right: 0;
+            background-color: rgba(250, 247, 245, 0.85); backdrop-filter: blur(16px);
+            z-index: 100; height: 55px; display: flex; align-items: center; border-bottom: 1px solid var(--ps-border);
+        }
+        .scroll-nav {
+            display: flex; gap: 8px; padding: 0 16px; overflow-x: auto; white-space: nowrap;
+            -ms-overflow-style: none; scrollbar-width: none; width: 100%;
+        }
+        .scroll-nav::-webkit-scrollbar { display: none; }
+        
+        .action-btn {
+            background-color: var(--ps-surface-muted); border: none; border-radius: var(--ps-radius-pill); 
+            padding: 8px 16px; font-size: 0.85rem; font-weight: 700; color: var(--ps-text-secondary); 
+            cursor: pointer; flex-shrink: 0; display: flex; align-items: center; gap: 4px; transition: 0.2s;
+        }
+        .action-btn:active { opacity: 0.7; background-color: var(--ps-border-strong); }
+        .action-btn.primary { background-color: var(--ps-primary); color: white; }
+        .action-btn.save { background-color: rgba(163, 201, 168, 0.15); color: #7DA983; }
+
+        .workspace { padding: 20px 16px; max-width: 680px; margin: 0 auto; }
+        .preset-header { 
+            background: var(--ps-surface); padding: 24px; border-radius: var(--ps-radius-md);
+            margin-bottom: 24px; box-shadow: var(--ps-shadow-soft);
+        }
+        .preset-meta {
+            font-size: 0.75rem; font-weight: 800; color: var(--ps-text-secondary); display: flex; 
+            justify-content: space-between; margin-bottom: 12px; text-transform: uppercase;
+        }
+        .preset-name-input { 
+            width: 100%; font-size: 1.4rem; font-weight: 800; color: var(--ps-text); 
+            border: none; background: transparent; outline: none; text-align: center;
+        }
+
+        .list-header { font-size: 0.8rem; font-weight: 800; color: var(--ps-text-secondary); margin-bottom: 14px; padding-left: 8px; }
+        .module-item {
+            background-color: var(--ps-surface); border-radius: var(--ps-radius-md); margin-bottom: 12px;
+            padding: 16px; display: flex; align-items: center; gap: 14px; box-shadow: var(--ps-shadow-soft); 
+            transition: transform 0.2s; border: 1px solid transparent;
+        }
+        .module-item.sortable-ghost { opacity: 0.4; background-color: var(--ps-surface-muted); }
+        .module-item.sortable-drag { cursor: grabbing !important; transform: scale(1.02); border: 1px solid var(--ps-primary); }
+        .drag-handle { color: var(--ps-text-muted); font-size: 1.2rem; padding: 0 4px; touch-action: none; cursor: grab; }
+
+        .enable-toggle {
+            position: relative; width: 40px; height: 24px; background-color: var(--ps-border-strong);
+            border-radius: 30px; transition: 0.3s; flex-shrink: 0;
+        }
+        .enable-toggle::after {
+            content: ''; position: absolute; top: 2px; left: 2px; width: 20px; height: 20px; 
+            background-color: white; border-radius: 50%; transition: 0.3s;
+        }
+        .enable-toggle.active { background-color: var(--ps-primary); }
+        .enable-toggle.active::after { transform: translateX(16px); }
+
+        .module-info { flex-grow: 1; overflow: hidden; cursor: pointer; }
+        .module-title { font-size: 0.95rem; font-weight: 800; color: var(--ps-text); white-space: nowrap; text-overflow: ellipsis; overflow: hidden; }
+        .module-summary { font-size: 0.75rem; font-weight: 600; color: var(--ps-text-muted); margin-top: 4px; font-family: var(--ps-font-mono); }
+
+        .add-module-btn {
+            width: 100%; padding: 18px; background-color: transparent; border: 1px dashed var(--ps-text-muted);
+            border-radius: var(--ps-radius-md); color: var(--ps-text-secondary); font-size: 0.95rem; font-weight: 800; 
+            margin-top: 20px; cursor: pointer; transition: 0.2s;
+        }
+        .add-module-btn:active { background-color: var(--ps-surface-muted); }
+
+        /* 底部抽屉 */
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(74, 66, 64, 0.4); 
+            display: none; align-items: flex-end; z-index: 200; backdrop-filter: blur(4px);
+        }
+        .modal-panel {
+            background: var(--ps-page); width: 100%; max-height: 92vh; display: flex; flex-direction: column;
+            border-radius: var(--ps-radius-lg) var(--ps-radius-lg) 0 0; animation: slideUp 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+        }
+        @keyframes slideUp { 0% { transform: translateY(100%); } 100% { transform: translateY(0); } }
+        
+        .modal-header { padding: 24px 24px 16px 24px; display: flex; justify-content: space-between; align-items: center; }
+        .modal-title { font-size: 1.1rem; font-weight: 800; color: var(--ps-text); }
+        .close-btn { 
+            background: var(--ps-surface-muted); border: none; width: 32px; height: 32px; border-radius: 50%;
+            font-size: 1.2rem; font-weight: bold; color: var(--ps-text-secondary); cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .modal-body { padding: 0 24px 24px 24px; overflow-y: auto; flex-grow: 1; }
+
+        .input-group { margin-bottom: 20px; }
+        .input-group label { display: block; font-size: 0.8rem; font-weight: 800; color: var(--ps-text-secondary); margin-bottom: 8px; }
+        .form-input, .form-textarea {
+            width: 100%; padding: 14px; border: 1px solid var(--ps-border); border-radius: var(--ps-radius-sm);
+            font-size: 0.95rem; font-family: var(--ps-font-ui); font-weight: 600; color: var(--ps-text); background-color: var(--ps-surface);
+        }
+        .form-input:focus, .form-textarea:focus { outline: none; border-color: var(--ps-primary); }
+        .form-textarea { height: 200px; line-height: 1.6; resize: none; }
+        .form-input[readonly], .form-textarea[readonly] { background-color: var(--ps-page); color: var(--ps-text-muted); }
+
+        .advanced-settings { border: 1px solid var(--ps-border); border-radius: var(--ps-radius-sm); background: var(--ps-surface); margin-top: 16px; overflow: hidden; }
+        .advanced-header {
+            padding: 16px; font-size: 0.85rem; font-weight: 800; color: var(--ps-text-secondary);
+            display: flex; justify-content: space-between; align-items: center; cursor: pointer; background: var(--ps-surface-muted);
+        }
+        .advanced-body { padding: 0 16px 16px 16px; display: none; background: var(--ps-surface); }
+        .advanced-settings.open .advanced-body { display: block; padding-top: 16px; }
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+        .btn-delete {
+            width: 100%; padding: 16px; background-color: transparent; color: var(--ps-danger);
+            border: 1px solid var(--ps-danger); border-radius: var(--ps-radius-pill); font-size: 0.95rem; font-weight: 800; margin-top: 32px; cursor: pointer;
+        }
+
+        .btn-confirm {
+            width: 100%; padding: 16px; background-color: var(--ps-primary); color: white;
+            border: none; border-radius: var(--ps-radius-pill); font-size: 1rem; font-weight: 800; margin-top: 24px; cursor: pointer;
+            box-shadow: 0 4px 12px rgba(239, 166, 157, 0.3); transition: 0.2s;
+        }
+        .btn-confirm:active { transform: translateY(2px); box-shadow: none; }
+
+        .history-item {
+            padding: 16px; background: var(--ps-surface); border-radius: var(--ps-radius-md);
+            margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; box-shadow: var(--ps-shadow-soft);
+        }
+        .history-item.active { border: 1px solid var(--ps-primary); }
+        .btn-sm { padding: 8px 16px; font-size: 0.8rem; font-weight: 800; border-radius: 20px; border: none; cursor: pointer; }
+        .btn-load { background: var(--ps-primary); color: white; }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="scroll-nav">
+            <button class="action-btn save" onclick="manualSaveGlobal()">💾 保存</button>
+            <button class="action-btn primary" onclick="createNewPreset()">✨ 新建</button>
+            <button class="action-btn" onclick="triggerImport()">📥 导入</button>
+            <button class="action-btn" onclick="exportData()">📤 导出</button>
+            <button class="action-btn" onclick="openHistoryModal()">📁 历史</button>
+            <input type="file" id="fileInput" accept=".json" style="display:none;" onchange="handleImport(event)">
+        </div>
+    </header>
+
+    <div class="workspace">
+        <div class="preset-header">
+            <div class="preset-meta">
+                <span>当前预设 (Current)</span>
+                <span class="status-dot" id="saveStatus" style="color: var(--ps-success);">已保存</span>
+            </div>
+            <input type="text" id="presetName" class="preset-name-input" oninput="updatePresetName(this.value)" placeholder="输入预设名称...">
+        </div>
+
+        <div class="list-header" id="moduleCount">Prompt Modules / 提示词模块</div>
+        <div class="module-list" id="promptsContainer"></div>
+        <button class="add-module-btn" onclick="addCustomPrompt()">+ 增加自定义模块</button>
+    </div>
+
+    <!-- =============== 编辑抽屉 =============== -->
+    <div id="editModal" class="modal-overlay" onclick="closeEditModal()">
+        <div class="modal-panel" onclick="event.stopPropagation()">
+            <div class="modal-header">
+                <div class="modal-title" id="editModalTitle">✏️ 编辑条目</div>
+                <button class="close-btn" onclick="closeEditModal()">×</button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="editIndex">
+
+                <div class="input-group">
+                    <label>显示名称 (Name)</label>
+                    <input type="text" id="editName" class="form-input">
+                </div>
+
+                <div class="input-group" id="contentGroup">
+                    <label>提示词内容 (Content)</label>
+                    <textarea id="editContent" class="form-textarea"></textarea>
+                    <p id="markerNotice" style="font-size:0.75rem; color:var(--ps-danger); display:none; margin-top:8px; font-weight:700;">
+                        ⚠️ 系统标记位（Marker）：酒馆要求此类模块不可包含文本内容。
+                    </p>
+                </div>
+
+                <div class="advanced-settings" id="advSettings">
+                    <div class="advanced-header" onclick="document.getElementById('advSettings').classList.toggle('open')">
+                        <span>⚙️ 进阶参数 (Advanced)</span>
+                        <span>▼</span>
+                    </div>
+                    <div class="advanced-body">
+                        <div class="input-group">
+                            <label>底层标识 (Identifier) - <span style="color:var(--ps-danger)">非常重要！酒馆靠它识别</span></label>
+                            <input type="text" id="editIdentifier" class="form-input">
+                        </div>
+                        <div class="grid-2">
+                            <div class="input-group">
+                                <label>注入位置 (Position)</label>
+                                <select id="editPos" class="form-input" onchange="onPosChange()">
+                                    <option value="0">0 · 相对注入（系统区）</option>
+                                    <option value="1">1 · 绝对注入（聊天内）</option>
+                                </select>
+                            </div>
+                            <div class="input-group" id="depthGroup">
+                                <label>注入深度 (Depth)</label>
+                                <input type="number" id="editDepth" class="form-input">
+                            </div>
+                        </div>
+                        <div class="input-group" id="orderGroup" style="margin-top: 12px;">
+                            <label>注入权重 (Order)</label>
+                            <input type="number" id="editOrder" class="form-input">
+                        </div>
+                    </div>
+                </div>
+                
+                <button class="btn-confirm" onclick="confirmCurrentEdit()">✅ 确认修改并保存</button>
+                <button class="btn-delete" onclick="deleteCurrentPrompt()">🗑️ 删除此模块</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- =============== 历史记录抽屉 =============== -->
+    <div id="historyModal" class="modal-overlay" onclick="closeModal('historyModal')">
+        <div class="modal-panel" onclick="event.stopPropagation()" style="height: 75vh;">
+            <div class="modal-header">
+                <div class="modal-title">📦 本地存档</div>
+                <button class="close-btn" onclick="closeModal('historyModal')">×</button>
+            </div>
+            <div class="modal-body" id="historyListContainer" style="padding-top: 10px;"></div>
+        </div>
+    </div>
+
+    <script>
+        // 绝对标准的 12 个官方 ST 结构
+        // 与酒馆 1.19 官方 chatCompletionDefaultPrompts 逐字段对齐：
+        // - 普通内容模块：role + content（无 injection 字段 = 相对注入）
+        // - 系统标记位（marker）：只有 identifier/name/system_prompt/marker，绝不能有 content
+        const ST_REQUIRED_BLOCKS = [
+            { name: "Main Prompt", identifier: "main", system_prompt: true, role: "system", content: "Write {{char}}'s next reply in a fictional chat between {{charIfNotGroup}} and {{user}}." },
+            { name: "Auxiliary Prompt", identifier: "nsfw", system_prompt: true, role: "system", content: "" },
+            { identifier: "dialogueExamples", name: "Chat Examples", system_prompt: true, marker: true },
+            { name: "Post-History Instructions", identifier: "jailbreak", system_prompt: true, role: "system", content: "" },
+            { identifier: "chatHistory", name: "Chat History", system_prompt: true, marker: true },
+            { identifier: "worldInfoAfter", name: "World Info (after)", system_prompt: true, marker: true },
+            { identifier: "worldInfoBefore", name: "World Info (before)", system_prompt: true, marker: true },
+            { identifier: "enhanceDefinitions", role: "system", name: "Enhance Definitions", content: "If you have more knowledge of {{char}}, add to the character's lore and personality to enhance them but keep the Character Sheet's definitions absolute.", system_prompt: true, marker: false },
+            { identifier: "charDescription", name: "Char Description", system_prompt: true, marker: true },
+            { identifier: "charPersonality", name: "Char Personality", system_prompt: true, marker: true },
+            { identifier: "scenario", name: "Scenario", system_prompt: true, marker: true },
+            { identifier: "personaDescription", name: "Persona Description", system_prompt: true, marker: true }
+        ];
+
+        // 采样参数必须用酒馆内部的 _openai 字段名（temperature 这种是 OpenAI 原始名，酒馆不认）
+        const DEFAULT_ROOT_PARAMS = {
+            temp_openai: 0.9, freq_pen_openai: 0.5, pres_pen_openai: 0.4, top_p_openai: 1, top_k_openai: 0, top_a_openai: 0, min_p_openai: 0, repetition_penalty_openai: 1,
+            openai_max_context: 128000, openai_max_tokens: 4000, names_behavior: 0,
+            impersonation_prompt: "[Write your next reply from the point of view of {{user}}, using the chat history so far as a guideline for the writing style of {{user}}. Don't write as {{char}} or system. Don't describe actions of {{char}}.]",
+            new_chat_prompt: "[Start a new Chat]", new_group_chat_prompt: "[Start a new group chat. Group members: {{group}}]",
+            new_example_chat_prompt: "[Example Chat]", continue_nudge_prompt: "[Continue your last message without repeating its original content.]",
+            group_nudge_prompt: "[Write the next reply only as {{char}}.]", bias_preset_selected: "Default (none)",
+            wi_format: "{0}", scenario_format: "{{scenario}}", personality_format: "{{personality}}"
+        };
+
+        // 酒馆「全局」提示词顺序用的虚拟角色 ID = promptOrder.dummyId。
+        // ⚠️ 不是 PromptManager 类默认的 100000——openai.js 初始化时实际传入的是 100001（1.19 起）。
+        // 填错这个，酒馆找不到对应的顺序表，会自动重置成默认 12 条、把你加的自定义条目丢掉。
+        const ST_GLOBAL_ORDER_DUMMY_ID = 100001;
+
+        let db = { presets: [], currentId: null };
+        let activePreset = null;
+        let sortableInstance = null;
+
+        function initApp() {
+            const saved = localStorage.getItem('ps_peach_st_db_v3');
+            if (saved) db = JSON.parse(saved);
+            
+            if (db.presets.length === 0) createNewPreset(true);
+            else { activePreset = db.presets.find(p => p.id === db.currentId) || db.presets[0]; db.currentId = activePreset.id; }
+            renderEditor();
+        }
+
+        function saveToDB() {
+            if (!activePreset) return;
+            const idx = db.presets.findIndex(p => p.id === activePreset.id);
+            if (idx > -1) db.presets[idx] = JSON.parse(JSON.stringify(activePreset));
+            else db.presets.push(JSON.parse(JSON.stringify(activePreset)));
+            db.currentId = activePreset.id;
+            localStorage.setItem('ps_peach_st_db_v3', JSON.stringify(db));
+            
+            document.getElementById('saveStatus').innerText = "已保存";
+            document.getElementById('saveStatus').style.color = "var(--ps-success)";
+        }
+
+        function manualSaveGlobal() {
+            saveToDB(); document.getElementById('saveStatus').innerText = "✅ 已保存";
+        }
+
+        function createNewPreset(isInit = false) {
+            const newPrompts = JSON.parse(JSON.stringify(ST_REQUIRED_BLOCKS)).map(block => {
+                block.__ui_enabled = true;
+                return block;
+            });
+            activePreset = { 
+                id: 'PS_' + Date.now(), name: "未命名预设", 
+                root_params: JSON.parse(JSON.stringify(DEFAULT_ROOT_PARAMS)), 
+                prompts: newPrompts 
+            };
+            saveToDB(); if (!isInit) alert("新预设创建成功！"); renderEditor();
+        }
+
+        function renderEditor() {
+            document.getElementById('presetName').value = activePreset.name;
+            document.getElementById('moduleCount').innerText = `Prompt Modules / 提示词 (${activePreset.prompts.length})`;
+            
+            const container = document.getElementById('promptsContainer');
+            container.innerHTML = '';
+            
+            activePreset.prompts.forEach((p, idx) => {
+                const row = document.createElement('div');
+                row.className = 'module-item'; row.dataset.idx = idx;
+                
+                const depthStr = p.injection_depth !== undefined ? ` · dep:${p.injection_depth}` : '';
+                const summaryText = p.marker ? `${p.identifier} · [System Marker]` : `${p.identifier}${depthStr}`;
+
+                row.innerHTML = `
+                    <div class="drag-handle">⋮⋮</div>
+                    <div class="enable-toggle ${p.__ui_enabled ? 'active' : ''}" onclick="toggleSwitchLogic(${idx}, event, this)"></div>
+                    <div class="module-info" onclick="openEditModal(${idx})" style="opacity: ${p.__ui_enabled ? '1' : '0.4'};">
+                        <div class="module-title">${p.name}</div>
+                        <div class="module-summary">${summaryText}</div>
+                    </div>
+                `;
+                container.appendChild(row);
+            });
+
+            if(sortableInstance) sortableInstance.destroy();
+            sortableInstance = new Sortable(container, {
+                handle: '.drag-handle', animation: 200, delay: 150, delayOnTouchOnly: true,
+                onEnd: function (evt) {
+                    if (evt.oldIndex === evt.newIndex) return;
+                    const movedItem = activePreset.prompts.splice(evt.oldIndex, 1)[0];
+                    activePreset.prompts.splice(evt.newIndex, 0, movedItem);
+                    // 顺序由导出时按数组顺序生成 prompt_order，这里不改 injection_order
+                    saveToDB(); renderEditor();
+                }
+            });
+        }
+
+        window.updatePresetName = (val) => { 
+            activePreset.name = val; 
+            document.getElementById('saveStatus').innerText = "修改中...";
+            document.getElementById('saveStatus').style.color = "var(--ps-text-muted)";
+            clearTimeout(window.saveTimer); window.saveTimer = setTimeout(saveToDB, 1000);
+        };
+
+        window.toggleSwitchLogic = (idx, e, btnEl) => {
+            e.stopPropagation();
+            activePreset.prompts[idx].__ui_enabled = !activePreset.prompts[idx].__ui_enabled;
+            saveToDB();
+            const infoArea = btnEl.nextElementSibling;
+            if(activePreset.prompts[idx].__ui_enabled) { btnEl.classList.add('active'); infoArea.style.opacity = '1'; } 
+            else { btnEl.classList.remove('active'); infoArea.style.opacity = '0.4'; }
+        };
+
+        window.openEditModal = (idx) => {
+            const p = activePreset.prompts[idx];
+            document.getElementById('editIndex').value = idx;
+            document.getElementById('editName').value = p.name || '';
+            document.getElementById('editIdentifier').value = p.identifier || '';
+            
+            // 酒馆注入位置只有两档：0=相对注入(系统区)，1=绝对注入(插入聊天内，才需要深度/权重)
+            document.getElementById('editPos').value = (p.injection_position === 1) ? '1' : '0';
+            document.getElementById('editDepth').value = p.injection_depth !== undefined ? p.injection_depth : '';
+            document.getElementById('editOrder').value = p.injection_order !== undefined ? p.injection_order : '';
+
+            const contentInput = document.getElementById('editContent');
+            const notice = document.getElementById('markerNotice');
+
+            if (p.marker) {
+                contentInput.value = "【系统保留区】该模块无静态文本。";
+                contentInput.readOnly = true;
+                notice.style.display = 'block';
+            } else {
+                contentInput.value = p.content || '';
+                contentInput.readOnly = false;
+                notice.style.display = 'none';
+            }
+            onPosChange();
+
+            // 前12个是核心不可改ID
+            document.getElementById('editIdentifier').readOnly = (idx < 12);
+            document.getElementById('advSettings').classList.remove('open');
+            document.getElementById('editModal').style.display = 'flex';
+        };
+
+        window.closeEditModal = () => { document.getElementById('editModal').style.display = 'none'; };
+
+        // 绝对注入(1)才显示深度/权重；marker 模块不需要注入参数
+        window.onPosChange = () => {
+            const idx = parseInt(document.getElementById('editIndex').value);
+            const p = activePreset.prompts[idx];
+            const isAbsolute = document.getElementById('editPos').value === '1';
+            const show = isAbsolute && !p.marker;
+            document.getElementById('depthGroup').style.display = show ? '' : 'none';
+            document.getElementById('orderGroup').style.display = show ? '' : 'none';
+        };
+
+        // ★★★ 点击“确认修改并保存”执行校验 ★★★
+        window.confirmCurrentEdit = () => {
+            const idx = parseInt(document.getElementById('editIndex').value);
+            const p = activePreset.prompts[idx];
+            
+            p.name = document.getElementById('editName').value;
+            const newId = document.getElementById('editIdentifier').value.trim();
+            
+            // 拦截非法标识
+            if(idx >= 12 && newId === "") {
+                alert("底层标识(Identifier)不能为空！酒馆靠它识别。"); return;
+            }
+            p.identifier = newId;
+            
+            if (!p.marker) {
+                p.content = document.getElementById('editContent').value;
+                // 只有非 marker 才写注入字段；绝对注入(1)才需要深度/权重
+                p.injection_position = (document.getElementById('editPos').value === '1') ? 1 : 0;
+                if (p.injection_position === 1) {
+                    p.injection_depth = parseInt(document.getElementById('editDepth').value) || 0;
+                    p.injection_order = parseInt(document.getElementById('editOrder').value) || 0;
+                } else {
+                    delete p.injection_depth;
+                    delete p.injection_order;
+                }
+            }
+
+            saveToDB(); closeEditModal(); renderEditor(); 
+        };
+
+        window.deleteCurrentPrompt = () => {
+            const idx = parseInt(document.getElementById('editIndex').value);
+            if(idx < 12 && !confirm('警告：正在删除 ST 官方必备模块！如果缺失核心模块，导入酒馆将会完全失败。确认吗？')) return;
+            activePreset.prompts.splice(idx, 1); saveToDB(); closeEditModal(); renderEditor();
+        };
+
+        // ★★★ 添加自定义条目：赋予它“酒馆通行证”属性（system_prompt + role 即可，注入默认相对） ★★★
+        window.addCustomPrompt = () => {
+            activePreset.prompts.push({
+                identifier: "custom_prompt_" + Date.now().toString(36),
+                name: "自定义条目",
+                system_prompt: true,
+                role: "system",
+                content: "在这里写下你的自定义设定...",
+                injection_position: 0,
+                __ui_enabled: true
+            });
+            saveToDB(); renderEditor();
+            setTimeout(() => window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' }), 100);
+        };
+
+        window.openHistoryModal = () => {
+            const c = document.getElementById('historyListContainer'); c.innerHTML = '';
+            db.presets.forEach(p => {
+                const isActive = p.id === activePreset.id;
+                c.innerHTML += `
+                    <div class="history-item ${isActive ? 'active' : ''}">
+                        <div style="flex:1; overflow:hidden; margin-right:10px;">
+                            <div style="font-weight:800; font-size:0.95rem; white-space:nowrap; text-overflow:ellipsis;">${p.name}</div>
+                        </div>
+                        <div style="display:flex; gap:8px;">
+                            ${!isActive ? `<button class="btn-sm btn-load" onclick="loadPreset('${p.id}')">读档</button>` : `<span style="font-size:0.8rem; color:var(--ps-primary); font-weight:800;">当前</span>`}
+                        </div>
+                    </div>
+                `;
+            });
+            document.getElementById('historyModal').style.display = 'flex';
+        };
+
+        window.closeModal = (id) => document.getElementById(id).style.display = 'none';
+        window.loadPreset = (id) => { activePreset = db.presets.find(p => p.id === id); db.currentId = id; saveToDB(); renderEditor(); closeModal('historyModal'); };
+
+        // ★ 彻底兼容 ST 官方导入导出格式逻辑 ★
+        window.exportData = () => {
+            saveToDB();
+            // 1) prompts：保留全部条目（含被禁用的），仅去掉内部 __ui_enabled 字段。
+            //    不要过滤——酒馆 checkForMissingPrompts 会把你删掉的官方模块重新补回来，禁用一个模块
+            //    的正确做法是写进 prompt_order 的 enabled:false。
+            const exportPrompts = activePreset.prompts.map(p => {
+                const cp = { ...p };
+                delete cp.__ui_enabled;
+                return cp;
+            });
+
+            // 2) prompt_order：按当前拖拽顺序 + 启停状态生成（global 策略虚拟角色 id 见 ST_GLOBAL_ORDER_DUMMY_ID）
+            const prompt_order = [{
+                character_id: ST_GLOBAL_ORDER_DUMMY_ID,
+                order: activePreset.prompts.map(p => ({
+                    identifier: p.identifier,
+                    enabled: p.__ui_enabled !== false,
+                })),
+            }];
+
+            // 3) 顶层 = 采样/上下文参数(root_params，已是 _openai 字段名) + prompts + prompt_order
+            const payload = { ...activePreset.root_params, prompts: exportPrompts, prompt_order };
+
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(new Blob([JSON.stringify(payload, null, 4)], { type: "application/json" }));
+            a.download = `${activePreset.name}.json`;
+            document.body.appendChild(a); a.click(); document.body.removeChild(a);
+        };
+
+        window.triggerImport = () => document.getElementById('fileInput').click();
+        window.handleImport = (e) => {
+            const file = e.target.files[0]; if(!file) return;
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                try {
+                    const json = JSON.parse(event.target.result);
+                    if (json.prompts && Array.isArray(json.prompts)) {
+                        let prompts = json.prompts.map(p => { p.__ui_enabled = true; return p; });
+
+                        // 依据 prompt_order 恢复顺序与启停状态（global 策略虚拟角色 id 见 ST_GLOBAL_ORDER_DUMMY_ID）
+                        const globalOrder = Array.isArray(json.prompt_order)
+                            ? (json.prompt_order.find(o => String(o.character_id) === String(ST_GLOBAL_ORDER_DUMMY_ID))?.order || null)
+                            : null;
+
+                        if (globalOrder) {
+                            const byId = new Map(prompts.map(p => [p.identifier, p]));
+                            const ordered = [];
+                            globalOrder.forEach(entry => {
+                                const p = byId.get(entry.identifier);
+                                if (p) { p.__ui_enabled = entry.enabled !== false; ordered.push(p); byId.delete(entry.identifier); }
+                            });
+                            byId.forEach(p => ordered.push(p)); // 不在 order 里的自定义条目追加到尾部
+                            prompts = ordered;
+                        }
+
+                        const importedPreset = { id: 'PS_' + Date.now(), name: file.name.replace('.json', ''), root_params: {}, prompts: [] };
+                        Object.keys(json).forEach(k => { if (k !== 'prompts' && k !== 'prompt_order') importedPreset.root_params[k] = json[k]; });
+                        if(Object.keys(importedPreset.root_params).length === 0) importedPreset.root_params = JSON.parse(JSON.stringify(DEFAULT_ROOT_PARAMS));
+
+                        importedPreset.prompts = prompts;
+
+                        db.presets.push(importedPreset); activePreset = importedPreset; db.currentId = importedPreset.id;
+                        saveToDB(); renderEditor(); alert(`导入成功！包含了 ${prompts.length} 个条目。`);
+                    } else alert('不是有效的酒馆预设文件！');
+                } catch(err) { alert("文件解析错误。"); }
+                e.target.value = '';
+            };
+            reader.readAsText(file);
+        };
+
+        initApp();
+    </script>
+</body>
+</html>
